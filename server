@@ -1,0 +1,410 @@
+// ==============================================================================
+// File 1: server.js (Node.js/Express Backend)
+// ==============================================================================
+// ConnectSpot Hotspot Backend Server - Node.js/Express
+// This server manages plans, simulates purchases, and tracks user sessions.
+
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const http = require('http'); // Required for manual server control and cleanup
+
+const app = express();
+const PORT = 3000; // The port for your Node.js backend
+
+// Middleware
+// Enable CORS for all origins (for development).
+// In production, restrict this to your frontend's domain.
+app.use(cors());
+// Parse JSON request bodies
+app.use(express.json());
+// Serve static files from a 'public' directory
+// Ensure your HTML file (e.g., index.html) and other assets are in a 'public' folder
+app.use(express.static(path.join(__dirname, 'public')));
+
+// In-memory data stores (for school project - in a real app, use a database like MongoDB, PostgreSQL)
+let plans = [
+    {
+        id: 1,
+        name: "Quick Browse",
+        duration: "30 minutes",
+        price: 2.00,
+        duration_minutes: 30,
+        description: "Perfect for quick browsing and social media",
+        is_active: true
+    },
+    {
+        id: 2,
+        name: "Standard Access",
+        duration: "2 hours",
+        price: 5.00,
+        duration_minutes: 120,
+        description: "Great for work and entertainment",
+        is_active: true
+    },
+    {
+        id: 3,
+        name: "Extended Session",
+        duration: "24 hours",
+        price: 15.00,
+        duration_minutes: 1440,
+        description: "Full day access for heavy users",
+        is_active: true
+    }
+];
+
+let sessions = []; // Active user sessions, identified by device_id
+let transactions = []; // Records of all payment attempts
+
+// Helper function to generate unique IDs
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+}
+
+// Helper function to get device identifier (prioritize MAC from body, fallback to IP)
+// In a real hotspot, the router would provide the client's MAC address consistently.
+function getDeviceId(req) {
+    // Check if device_mac is provided in the request body (from frontend)
+    if (req.body && req.body.device_mac) {
+        return req.body.device_mac.toUpperCase().replace(/[^0-9A-F]/g, ''); // Clean and return MAC
+    }
+    // Fallback to IP address if MAC is not provided (less reliable for uniqueness)
+    // For a school project, req.ip or req.connection.remoteAddress is sufficient.
+    return req.ip || req.connection.remoteAddress || 'unknown';
+}
+
+// --- API Routes ---
+
+// GET /api/plans - Get all available active plans
+app.get('/api/plans', (req, res) => {
+    console.log('📋 Getting available plans');
+    const activePlans = plans.filter(plan => plan.is_active);
+    res.json({
+        success: true,
+        plans: activePlans.map(plan => ({
+            id: plan.id,
+            name: plan.name,
+            duration: plan.duration, // Keep original string for display
+            price: plan.price,
+            duration_minutes: plan.duration_minutes,
+            description: plan.description,
+            is_active: plan.is_active
+        }))
+    });
+});
+
+// POST /api/purchase - Purchase a plan (simulates payment and starts session)
+app.post('/api/purchase', (req, res) => {
+    const { plan_id, payment_method = 'demo_payment' } = req.body;
+    const device_id = getDeviceId(req); // Get the device identifier (MAC)
+
+    console.log(`💳 Processing purchase for plan ${plan_id} from device ${device_id}`);
+
+    // Find the selected plan
+    const plan = plans.find(p => p.id === plan_id && p.is_active);
+    if (!plan) {
+        return res.status(404).json({
+            success: false,
+            message: 'Selected plan not found or is inactive.'
+        });
+    }
+
+    // Check if device already has an active session
+    const existingSession = sessions.find(s => s.device_id === device_id && s.is_active);
+    if (existingSession && new Date() < new Date(existingSession.end_time)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Device already has an active session. Please disconnect or wait for expiry.'
+        });
+    }
+
+    // Simulate payment processing (90% success rate for demo)
+    const paymentSuccessful = Math.random() > 0.1;
+
+    if (!paymentSuccessful) {
+        // Log failed transaction
+        const failedTransaction = {
+            id: generateId(),
+            device_id: device_id,
+            plan_id: plan_id,
+            amount: plan.price,
+            status: 'failed',
+            timestamp: new Date(),
+            payment_method: payment_method
+        };
+        transactions.push(failedTransaction);
+
+        return res.status(400).json({
+            success: false,
+            message: 'Payment failed. Please try again or choose another method.'
+        });
+    }
+
+    // Create successful transaction record
+    const transaction = {
+        id: generateId(),
+        device_id: device_id,
+        plan_id: plan_id,
+        amount: plan.price,
+        status: 'completed',
+        timestamp: new Date(),
+        payment_method: payment_method
+    };
+    transactions.push(transaction);
+
+    // Calculate session end time
+    const sessionEndTime = new Date(Date.now() + (plan.duration_minutes * 60 * 1000));
+
+    // Create new session
+    const newSession = {
+        id: generateId(),
+        device_id: device_id,
+        plan_id: plan_id,
+        transaction_id: transaction.id,
+        start_time: new Date(),
+        end_time: sessionEndTime,
+        is_active: true,
+        data_used: 0 // Placeholder for data usage
+    };
+    sessions.push(newSession);
+
+    console.log(`✅ Purchase successful! Session created: ${newSession.id}`);
+
+    // Respond with session details for the frontend
+    res.json({
+        success: true,
+        message: 'Payment successful! Internet access granted.',
+        session: {
+            id: newSession.id,
+            plan_name: plan.name,
+            end_time: newSession.end_time,
+            duration_minutes: plan.duration_minutes, // Total purchased duration
+            data_limit_mb: plan.data_limit_mb || 0, // Pass data limit
+            start_time: newSession.start_time // Pass start time for calculations on frontend
+        },
+        transaction: {
+            id: transaction.id,
+            amount: transaction.amount
+        }
+    });
+});
+
+// GET /api/session/status - Check current session status for a device
+// This endpoint would be used by the captive portal or router to verify access.
+app.get('/api/session/status', (req, res) => {
+    // In a real system, you might get device_id from a query param or a more robust header.
+    // For this demo, we can assume the frontend will send it if available.
+    const device_id = req.query.device_mac || getDeviceId(req);
+
+    if (!device_id) {
+        return res.status(400).json({
+            success: false,
+            message: 'Device identifier is required to check session status.'
+        });
+    }
+
+    const activeSession = sessions.find(s => s.device_id === device_id && s.is_active);
+
+    if (!activeSession) {
+        console.log(`ℹ️ No active session found for device ${device_id}`);
+        return res.json({
+            success: true,
+            has_session: false,
+            message: 'No active session found.'
+        });
+    }
+
+    // Check if session has expired
+    if (new Date() > new Date(activeSession.end_time)) {
+        activeSession.is_active = false; // Mark as expired
+        console.log(`⏰ Session ${activeSession.id} expired`);
+
+        return res.json({
+            success: true,
+            has_session: false,
+            message: 'Your session has expired. Please purchase a new plan.'
+        });
+    }
+
+    const plan = plans.find(p => p.id === activeSession.plan_id);
+    const timeRemainingMs = new Date(activeSession.end_time) - new Date();
+
+    res.json({
+        success: true,
+        has_session: true,
+        message: 'You have an active internet session.',
+        session: {
+            id: activeSession.id,
+            plan_name: plan ? plan.name : 'Unknown Plan',
+            start_time: activeSession.start_time,
+            end_time: activeSession.end_time,
+            time_remaining_ms: Math.max(0, timeRemainingMs),
+            duration_minutes: plan ? plan.duration_minutes : 0, // Total duration for progress bar
+            data_used: activeSession.data_used || 0,
+            data_limit_mb: plan ? plan.data_limit_mb : 0
+        }
+    });
+});
+
+// POST /api/session/disconnect - Disconnect current session
+app.post('/api/session/disconnect', (req, res) => {
+    const { session_id, device_mac } = req.body; // Expect session_id and device_mac from frontend
+
+    if (!session_id || !device_mac) {
+        return res.status(400).json({
+            success: false,
+            message: 'Session ID and Device MAC are required for disconnect.'
+        });
+    }
+
+    const activeSession = sessions.find(s => s.id === session_id && s.device_id === device_mac && s.is_active);
+
+    if (!activeSession) {
+        return res.status(404).json({
+            success: false,
+            message: 'No active session found for this ID and device, or already disconnected.'
+        });
+    }
+
+    // Deactivate session
+    activeSession.is_active = false;
+    activeSession.disconnected_at = new Date(); // Record disconnect time
+    activeSession.end_time = new Date(); // Set end time to now if manually disconnected
+
+    console.log(`🔌 Session ${activeSession.id} disconnected by user.`);
+
+    res.json({
+        success: true,
+        message: 'Session disconnected successfully.'
+    });
+});
+
+// GET /api/transactions - Get transaction history (optional - for admin/logging)
+// For a school project, this can be public for simplified testing.
+app.get('/api/transactions', (req, res) => {
+    const device_id = getDeviceId(req); // Get device ID to filter transactions
+    const deviceTransactions = transactions.filter(t => t.device_id === device_id);
+
+    res.json({
+        success: true,
+        transactions: deviceTransactions
+    });
+});
+
+// Admin endpoints (simplified for school project with no actual authentication)
+// In a real app, these would be protected by admin authentication/authorization.
+
+// GET /api/admin/sessions - Get all active sessions
+app.get('/api/admin/sessions', (req, res) => {
+    const activeSessions = sessions.filter(s => s.is_active);
+
+    res.json({
+        success: true,
+        active_sessions_count: activeSessions.length,
+        sessions: activeSessions.map(s => {
+            const plan = plans.find(p => p.id === s.plan_id);
+            const timeRemaining = Math.max(0, new Date(s.end_time) - new Date());
+            return {
+                id: s.id,
+                device_id: s.device_id, // Full ID for admin view
+                plan_name: plan ? plan.name : 'Unknown Plan',
+                start_time: s.start_time,
+                end_time: s.end_time,
+                time_remaining_ms: timeRemaining
+            };
+        })
+    });
+});
+
+// GET /api/admin/stats - Get system statistics
+app.get('/api/admin/stats', (req, res) => {
+    const totalTransactions = transactions.length;
+    const successfulTransactions = transactions.filter(t => t.status === 'completed').length;
+    const totalRevenue = transactions
+        .filter(t => t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+    const activeSessions = sessions.filter(s => s.is_active && new Date() < new Date(s.end_time)).length; // Ensure active means not expired
+
+    res.json({
+        success: true,
+        stats: {
+            total_transactions: totalTransactions,
+            successful_transactions: successfulTransactions,
+            success_rate: totalTransactions > 0 ? (successfulTransactions / totalTransactions * 100).toFixed(1) : 0,
+            total_revenue: totalRevenue.toFixed(2),
+            active_sessions: activeSessions,
+            plans_available: plans.filter(p => p.is_active).length
+        }
+    });
+});
+
+// Serve the frontend (main entry point for the captive portal)
+// This serves the index.html file from the 'public' directory
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('❌ Server error:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: err.message
+    });
+});
+
+// Cleanup expired sessions periodically
+// This keeps the 'sessions' array clean in the in-memory database.
+setInterval(() => {
+    const now = new Date();
+    let expiredCount = 0;
+    
+    // Filter out expired sessions
+    const updatedSessions = sessions.filter(session => {
+        if (session.is_active && now > new Date(session.end_time)) {
+            session.is_active = false; // Explicitly mark as inactive
+            expiredCount++;
+            return false; // Remove from active sessions
+        }
+        return true; // Keep active sessions
+    });
+    sessions = updatedSessions; // Update the sessions array
+
+    if (expiredCount > 0) {
+        console.log(`🧹 Cleaned up ${expiredCount} expired sessions.`);
+    }
+}, 60000); // Check every minute (adjust as needed for performance vs. real-time cleanup)
+
+// Start the server
+const server = app.listen(PORT, () => {
+    console.log(`🚀 ConnectSpot Backend Server running on http://localhost:${PORT}`);
+    console.log(`📋 API Endpoints:`);
+    console.log(`   GET  /api/plans           - Get available plans`);
+    console.log(`   POST /api/purchase        - Purchase a plan`);
+    console.log(`   GET  /api/session/status  - Check session status`);
+    console.log(`   POST /api/session/disconnect - Disconnect session`);
+    console.log(`   GET  /api/admin/stats     - Get system statistics (simplified)`);
+    console.log(`   GET  /api/admin/sessions  - View all active sessions (simplified)`);
+    console.log(`📱 Frontend accessible at: http://localhost:${PORT}`);
+    console.log(`\n💡 For school project demo, try opening:`);
+    console.log(`   http://localhost:${PORT}/api/plans`);
+    console.log(`   http://localhost:${PORT}/api/admin/stats`);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received. Closing HTTP server.');
+    server.close(() => {
+        console.log('HTTP server closed.');
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT signal received. Closing HTTP server.');
+    server.close(() => {
+        console.log('HTTP server closed.');
+        process.exit(0); // Exit process
+    });
+});
+
