@@ -1,0 +1,638 @@
+<!-- ==============================================================================
+File 3: public/index.html (Updated Frontend)
+============================================================================== -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectSpot Hotspot Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .status-indicator {
+            padding: 10px 20px;
+            border-radius: 25px;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .status-disconnected {
+            background: #ffe6e6;
+            color: #d63031;
+            border: 2px solid #fab1a0;
+        }
+
+        .status-connected {
+            background: #e6ffe6;
+            color: #00b894;
+            border: 2px solid #55a3ff;
+        }
+
+        .plans-container {
+            margin: 30px 0;
+        }
+
+        .plans-title {
+            font-size: 1.3em;
+            color: #2d3436;
+            margin-bottom: 20px;
+        }
+
+        .plan-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .plan-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .plan-card.selected {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+
+        .plan-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2d3436;
+            margin-bottom: 10px;
+        }
+
+        .plan-details {
+            color: #636e72;
+            margin-bottom: 10px;
+        }
+
+        .plan-price {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            min-width: 150px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #74b9ff;
+        }
+
+        .btn-danger {
+            background: #e17055;
+        }
+
+        .loading {
+            display: none;
+            color: #667eea;
+            margin: 20px 0;
+        }
+
+        .session-info {
+            background: #e6ffe6;
+            border: 2px solid #00b894;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .session-time {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #00b894;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">ConnectSpot</div>
+        <div class="subtitle">WiFi Hotspot Portal</div>
+        
+        <div id="statusIndicator" class="status-indicator status-disconnected">
+            🔴 Not Connected
+        </div>
+
+        <div id="welcomeSection">
+            <p>Welcome! Select a plan to get instant internet access.</p>
+            
+            <div id="loadingPlans" class="loading">
+                <div class="spinner"></div>
+                <p>Loading available plans...</p>
+            </div>
+
+            <div class="plans-container">
+                <div class="plans-title">Choose Your Plan</div>
+                <div id="plansContainer">
+                    <!-- Plans will be loaded here -->
+                </div>
+            </div>
+
+            <button id="purchaseBtn" class="btn" disabled onclick="purchasePlan()">
+                Select a Plan First
+            </button>
+        </div>
+
+        <div id="sessionSection" style="display: none;">
+            <div class="session-info">
+                <div class="session-time" id="sessionTimer">Time Remaining: --:--</div>
+                <div class="plan-details" id="currentPlan">Current Plan: --</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="timeProgress" style="width: 100%"></div>
+                </div>
+            </div>
+            
+            <button id="disconnectBtn" class="btn btn-danger" onclick="disconnect()">
+                Disconnect
+            </button>
+        </div>
+
+        <div id="messageContainer"></div>
+    </div>
+
+    <script>
+        // Use the Node.js backend URL
+        const API_BASE_URL = 'http://localhost:3000/api/'; 
+
+        // DOM elements
+        const statusIndicator = document.getElementById('statusIndicator');
+        const welcomeSection = document.getElementById('welcomeSection');
+        const sessionSection = document.getElementById('sessionSection');
+        const loadingPlansDiv = document.getElementById('loadingPlans');
+        const plansContainer = document.getElementById('plansContainer');
+        const purchaseBtn = document.getElementById('purchaseBtn');
+        const sessionTimerDisplay = document.getElementById('sessionTimer');
+        const currentPlanDisplay = document.getElementById('currentPlan');
+        const timeProgress = document.getElementById('timeProgress');
+        const messageContainer = document.getElementById('messageContainer');
+
+        // Global variables for session state
+        let selectedPlan = null;
+        let sessionIntervalId = null; 
+        let sessionEndTime = null;
+        let currentSessionId = null; // Node.js backend returns 'session.id'
+        let currentDeviceMac = ''; // To track the device's unique ID (MAC in this context)
+        let currentSessionTotalDuration = 0; // Total duration of the current plan in minutes
+
+        // --- Utility Functions ---
+
+        // Helper to show messages to the user
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            messageContainer.appendChild(messageDiv);
+            
+            // Auto-remove message after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+
+        // Helper to update connection status indicator
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                statusIndicator.className = 'status-indicator status-connected';
+                statusIndicator.innerHTML = '🟢 Connected';
+            } else {
+                statusIndicator.className = 'status-indicator status-disconnected';
+                statusIndicator.innerHTML = '🔴 Not Connected';
+            }
+        }
+
+        // Helper to show/hide loading spinner
+        function showLoading(element, show, text = '') {
+            if (show) {
+                element.style.display = 'block';
+                element.querySelector('.spinner').style.display = 'block';
+                element.querySelector('p').textContent = text;
+            } else {
+                element.style.display = 'none';
+                element.querySelector('.spinner').style.display = 'none';
+            }
+        }
+
+        // --- MAC Address/Device ID Detection (Simulated for Browser) ---
+        // In a real captive portal, the router pushes the MAC via URL param or HTTP header.
+        function getDeviceMac() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mac = urlParams.get('mac'); // e.g., router passes ?mac=AA:BB:CC:DD:EE:FF
+            if (mac) {
+                return mac.toUpperCase().replace(/[^0-9A-F:]/g, ''); // Clean format, keep colons
+            }
+            // Fallback for demonstration: generate a random "MAC" if not provided
+            const randomMac = Array(6).fill(0).map(() => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(':').toUpperCase();
+            console.warn("Simulating MAC address:", randomMac);
+            return randomMac; 
+        }
+
+        // --- API Communication ---
+        async function callApi(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                };
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                // Check if response is JSON before parsing
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        let errorMessage = data.message || (data.errors ? Object.values(data.errors).flat().join('<br>') : 'An unknown API error occurred.');
+                        showMessage(`Error: ${errorMessage}`, 'error');
+                        console.error(`API Error on ${endpoint}:`, errorMessage, data);
+                        return null;
+                    }
+                    console.log(`API Success on ${endpoint}:`, data);
+                    return data;
+                } else {
+                    const textData = await response.text();
+                    console.error(`Non-JSON response from ${endpoint}:`, textData);
+                    showMessage(`Server returned non-JSON response from ${endpoint}.`, 'error');
+                    return null;
+                }
+            } catch (error) {
+                console.error(`Network or API parse error on ${endpoint}:`, error);
+                showMessage(`Network error: ${error.message}. Please ensure the Node.js server is running on http://localhost:3000.`, 'error');
+                return null;
+            }
+        }
+
+        // --- Frontend Logic (Integrated with Backend Calls) ---
+
+        // Load plans from backend
+        async function loadPlans() {
+            showLoading(loadingPlansDiv, true, 'Loading available plans...');
+            // Call Node.js backend /api/plans
+            const data = await callApi('plans', 'GET'); 
+            showLoading(loadingPlansDiv, false);
+            
+            if (data && data.success && data.plans && data.plans.length > 0) {
+                plansContainer.innerHTML = ''; // Clear previous plans
+                data.plans.forEach(plan => {
+                    const planDiv = document.createElement('div');
+                    planDiv.className = 'plan-card';
+                    planDiv.dataset.planId = plan.id; 
+                    planDiv.onclick = () => selectPlan(planDiv, plan);
+
+                    const durationText = plan.duration || ''; // Use the 'duration' string from Node.js backend
+                    const descriptionText = plan.description || '';
+                    // Node.js backend sends price as number, format it
+                    const priceText = `Ksh ${parseFloat(plan.price).toFixed(2)}`; 
+                    
+                    planDiv.innerHTML = `
+                        <div class="plan-name">${plan.name}</div>
+                        <div class="plan-details">${durationText} • ${descriptionText}</div>
+                        <div class="plan-price">${priceText}</div>
+                    `;
+                    
+                    plansContainer.appendChild(planDiv);
+                });
+            } else {
+                plansContainer.innerHTML = '<p>No active plans available. Please contact support.</p>';
+            }
+        }
+
+        // Select a plan (frontend UI only)
+        function selectPlan(cardElement, plan) {
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            cardElement.classList.add('selected');
+            
+            selectedPlan = plan;
+            
+            purchaseBtn.disabled = false;
+            purchaseBtn.textContent = `Purchase ${plan.name} - Ksh ${parseFloat(plan.price).toFixed(2)}`;
+        }
+
+        // Purchase selected plan (initiates API call)
+        async function purchasePlan() {
+            if (!selectedPlan) {
+                showMessage('Please select a plan first.', 'error');
+                return;
+            }
+            
+            purchaseBtn.disabled = true;
+            purchaseBtn.textContent = 'Processing...';
+            
+            // Call Node.js backend /api/purchase
+            const response = await callApi('purchase', 'POST', {
+                plan_id: selectedPlan.id,
+                device_mac: currentDeviceMac // Send the detected/simulated MAC address
+            });
+
+            if (response && response.success) { // Node.js backend uses 'success: true'
+                showMessage(response.message, 'success');
+                startSession(response.session); // Node.js backend returns session data under 'session' key
+            } else {
+                // Error message already shown by callApi
+                purchaseBtn.disabled = false;
+                purchaseBtn.textContent = `Purchase ${selectedPlan.name} - Ksh ${parseFloat(selectedPlan.price).toFixed(2)}`;
+            }
+        }
+
+        // Start internet session based on backend response
+        function startSession(sessionData) {
+            updateConnectionStatus(true); 
+            
+            welcomeSection.style.display = 'none';
+            sessionSection.style.display = 'block';
+            
+            currentSessionId = sessionData.id; // Node.js backend's session ID
+            sessionEndTime = new Date(sessionData.end_time); // Use actual end time from backend
+            currentPlanDisplay.textContent = `Current Plan: ${sessionData.plan_name}`;
+            currentSessionTotalDuration = sessionData.duration_minutes; // Total duration from backend response
+
+            // Clear any existing timer before starting a new one
+            if (sessionIntervalId) {
+                clearInterval(sessionIntervalId);
+            }
+            
+            // Start the countdown timer
+            sessionIntervalId = setInterval(updateSessionTimer, 1000);
+
+            // Immediately update the timer on session start
+            updateSessionTimer();
+        }
+
+        // Updates the session countdown timer and progress bar
+        function updateSessionTimer() {
+            const now = new Date();
+            const timeLeftMillis = sessionEndTime - now;
+            
+            if (timeLeftMillis <= 0) {
+                endSession(); // Session expired
+                return;
+            }
+            
+            const minutes = Math.floor(timeLeftMillis / (1000 * 60));
+            const seconds = Math.floor((timeLeftMillis % (1000 * 60)) / 1000);
+            
+            sessionTimerDisplay.textContent = `Time Remaining: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update progress bar
+            const totalDurationMillis = currentSessionTotalDuration * 60 * 1000;
+            const elapsed = totalDurationMillis - timeLeftMillis;
+            const progressPercent = (elapsed / totalDurationMillis) * 100; // Progress from 0 to 100%
+            timeProgress.style.width = `${Math.max(0, 100 - progressPercent)}%`; // Reverse for fill decreasing
+        }
+
+        // End session (time up or manual disconnect)
+        function endSession() {
+            if (sessionIntervalId) {
+                clearInterval(sessionIntervalId);
+                sessionIntervalId = null;
+            }
+            
+            updateConnectionStatus(false); 
+            
+            welcomeSection.style.display = 'block';
+            sessionSection.style.display = 'none';
+            
+            // Reset purchase button
+            purchaseBtn.disabled = true;
+            purchaseBtn.textContent = 'Select a Plan First';
+            
+            // Remove plan selections
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            selectedPlan = null;
+            sessionEndTime = null;
+            currentSessionId = null;
+            currentSessionTotalDuration = 0;
+            timeProgress.style.width = '100%'; // Reset progress bar to full for next session
+            sessionTimerDisplay.textContent = 'Time Remaining: --:--';
+        }
+
+        // Custom Confirmation Dialog (replaces alert/confirm)
+        function showCustomConfirm(message, onConfirm, onCancel) {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+                z-index: 1000;
+            `;
+
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: white; padding: 30px; border-radius: 10px; text-align: center;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3); max-width: 400px; width: 90%;
+            `;
+
+            const messageP = document.createElement('p');
+            messageP.textContent = message;
+            messageP.style.cssText = 'margin-bottom: 20px; font-size: 1.1em;';
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'display: flex; justify-content: center; gap: 15px;';
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = 'Yes, Disconnect';
+            confirmBtn.className = 'btn btn-danger';
+            confirmBtn.style.cssText = 'margin: 0; padding: 10px 20px; font-size: 1em; border-radius: 5px;';
+            confirmBtn.onclick = () => {
+                modalOverlay.remove();
+                onConfirm();
+            };
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.className = 'btn'; // Use default btn style
+            cancelBtn.style.cssText = 'margin: 0; padding: 10px 20px; font-size: 1em; border-radius: 5px; background: #ccc; color: #333;';
+            cancelBtn.onclick = () => {
+                modalOverlay.remove();
+                if (onCancel) onCancel();
+            };
+
+            buttonContainer.appendChild(confirmBtn);
+            buttonContainer.appendChild(cancelBtn);
+            modalContent.appendChild(messageP);
+            modalContent.appendChild(buttonContainer);
+            modalOverlay.appendChild(modalContent);
+            document.body.appendChild(modalOverlay);
+        }
+
+        // Manual disconnect (calls API)
+        function disconnect() {
+            showCustomConfirm('Are you sure you want to disconnect? Remaining time will be lost.', async () => {
+                if (currentSessionId && currentDeviceMac) {
+                    // Call Node.js backend /api/session/disconnect
+                    const response = await callApi('session/disconnect', 'POST', {
+                        session_id: currentSessionId,
+                        device_mac: currentDeviceMac
+                    });
+
+                    if (response && response.success) {
+                        showMessage('Disconnected successfully.', 'success');
+                        endSession();
+                    } else {
+                        // Error message already shown by callApi
+                    }
+                } else {
+                    endSession(); // Disconnect frontend even if backend info is missing
+                    showMessage('Disconnected successfully.', 'success');
+                }
+            });
+        }
+
+        // Check for active session with backend on page load
+        async function checkActiveSession() {
+            currentDeviceMac = getDeviceMac(); // Get device MAC on load
+
+            if (!currentDeviceMac) {
+                // If MAC not detected (only simulated), can't check session, just load plans
+                loadPlans();
+                return;
+            }
+
+            showMessage('Checking for active internet session...', 'info');
+            // Call Node.js backend /api/session/status
+            const data = await callApi(`session/status?device_mac=${currentDeviceMac}`, 'GET'); // Pass MAC as query param
+
+            if (data && data.success && data.has_session) {
+                showMessage(`Welcome back! You have an active session for ${data.session.plan_name}.`, 'success');
+                startSession(data.session); // Resume session based on backend data
+            } else {
+                // If no active session, clear any info message and load plans for purchase
+                // Message will be handled by callApi if it's an error, otherwise just hides.
+                messageContainer.innerHTML = ''; // Clear "checking" message if no session
+                loadPlans();
+            }
+        }
+        
+        // --- Initialize the application ---
+        document.addEventListener('DOMContentLoaded', function() {
+            checkActiveSession(); // Start by checking if there's an active session
+        });
+
+    </script>
+</body>
+</html>
+
